@@ -45,9 +45,6 @@ def train(filename, initial_occurrence_val):
     prob_estimates = [{x: {y: joint_occurrences / total_occurrences for y, joint_occurrences in class_occurrences.items()} for x, class_occurrences in table.items()} for i, table in enumerate(occurrence_tables)]
     priors = {y: occurrence / total_occurrences for y, occurrence in y_occurrences.items()}
     
-    for i, table in enumerate(prob_estimates):
-        print("{0} | {1}".format(i + 1, table["1"]["1"]))
-    
     return (prob_estimates, priors)
 
 def train_mle(filename):
