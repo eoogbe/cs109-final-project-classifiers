@@ -14,76 +14,65 @@ where
 """
 
 import sys
+from test_result import TestResult
+from training_result import TrainingResult, OUTPUT_VALUES
+from maximizer import Maximizer
+from report_test_results import report_test_results
 
-INPUT_VALUES = ["0", "1"]
-OUTPUT_VALUES = ["0", "1"]
-NUM_INPUT_OUTPUT_COMBINATIONS = len(INPUT_VALUES) * len(OUTPUT_VALUES)
+ESTIMATORS = {"MLE": 0, "Lapace": 1}
 
-def create_initial_tables(num_tables, initial_val):
-    return [{x: {y: initial_val for y in OUTPUT_VALUES} for x in INPUT_VALUES} for i in range(num_tables)]
-
-def train(filename, initial_occurrence_val):
-    num_input_vars = None
-    num_vectors = None
-    occurrence_tables = None
-    y_occurrences = {y: 0 for y in OUTPUT_VALUES}
+class NaiveBayesClassifier(object):
+    def __init__(self, train_file, test_file):
+        self.__train_file = train_file
+        self.__test_file = test_file
     
-    with open(filename, 'r') as f:
-        for line in f:
-            if num_input_vars is None:
-                num_input_vars = int(line)
-                occurrence_tables = create_initial_tables(num_input_vars, initial_occurrence_val)
-            elif num_vectors is None:
-                num_vectors = int(line)
-            else:
-                x, y = line.rstrip().split(": ")
-                y_occurrences[y] += 1
-                for i, x_i in enumerate(x.split(" ")):
-                    occurrence_tables[i][x_i][y] += 1
+    def train_mle(self):
+        return self.train(0)
     
-    total_occurrences = num_vectors + initial_occurrence_val * NUM_INPUT_OUTPUT_COMBINATIONS
-    prob_estimates = [{x: {y: joint_occurrences / total_occurrences for y, joint_occurrences in class_occurrences.items()} for x, class_occurrences in table.items()} for i, table in enumerate(occurrence_tables)]
-    priors = {y: occurrence / total_occurrences for y, occurrence in y_occurrences.items()}
+    def train_laplace(self):
+        return self.train(1)
     
-    return (prob_estimates, priors)
-
-def train_mle(filename):
-    return train(filename, 0)
-
-def test(filename, prob_estimates, priors):
-    num_input_vars = None
-    num_vectors = None
-    test_results = None
+    def train(self, initial_occurrence_val):
+        num_input_vars = None
+        num_vectors = None
+        training_result = None
+        
+        with open(self.__train_file, 'r') as f:
+            for line in f:
+                if num_input_vars is None:
+                    num_input_vars = int(line)
+                elif num_vectors is None:
+                    num_vectors = int(line)
+                    training_result = TrainingResult(num_input_vars, num_vectors, initial_occurrence_val)
+                else:
+                    x, y = line.rstrip().split(": ")
+                    training_result.add_data(x.split(" "), y)
+        
+        training_result.train()
+        return training_result
     
-    with open(filename, 'r') as f:
-        for line in f:
-            if num_input_vars is None:
-                num_input_vars = int(line)
-            elif num_vectors is None:
-                num_vectors = int(line)
-                test_results = {output: [0, 0] for output in OUTPUT_VALUES}
-            else:
-                x, y_hat = line.rstrip().split(": ")
-                maximizer = None
-                for y in OUTPUT_VALUES:
-                    joint = priors[y]
-                    for i, x_i in enumerate(x.split(" ")):
-                        joint *= prob_estimates[i][x_i][y]
-                    if maximizer is None or joint > maximizer[1]:
-                        maximizer = (y, joint)
-                test_results[y_hat][0] += 1
-                if maximizer[0] == y_hat: test_results[y_hat][1] += 1
-    
-    return test_results
+    def test(self, training_result):
+        test_results = {output: TestResult() for output in OUTPUT_VALUES}
+        
+        with open(self.__test_file, 'r') as f:
+            for lineno, line in enumerate(f):
+                if lineno >= 2:
+                    input_vector, y_hat = line.rstrip().split(": ")
+                    x = input_vector.split(" ")
+                    maximizer = Maximizer()
+                    for y in OUTPUT_VALUES:
+                        joint = training_result.calculate_joint(x, y)
+                        maximizer.update(y, joint)
+                    test_results[y_hat].tested += 1
+                    if maximizer.y == y_hat: test_results[y_hat].correct += 1
+        
+        return test_results
 
 if __name__ == "__main__":
-    mle_prob_estimates, mle_priors = train_mle(sys.argv[1])
-    mle_test_results = test(sys.argv[2], mle_prob_estimates, mle_priors)
+    classifier = NaiveBayesClassifier(sys.argv[1], sys.argv[2])
     
-    for output_class, class_result in mle_test_results.items():
-        print("Class {0}: tested: {1}, correctly classified {2}".format(output_class, *class_result))
-    
-    total_tested = sum([x[0] for x in mle_test_results.values()])
-    total_correct = sum([x[1] for x in mle_test_results.values()])
-    print("Overall: tested {0}, correctly classified {1}".format(total_tested, total_correct))
-    print("Accuracy = {0}".format(total_correct / total_tested))
+    for name, initial_occurrence_val in ESTIMATORS.items():
+        training_result = classifier.train(initial_occurrence_val)
+        test_results = classifier.test(training_result)
+        report_test_results(name, test_results)
+        print()
