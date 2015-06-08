@@ -1,5 +1,6 @@
+from test_result import OUTPUT_VALUES
+
 INPUT_VALUES = ["0", "1"]
-OUTPUT_VALUES = ["0", "1"]
 
 class TrainingResult(object):
     def __init__(self, num_input_vars, num_vectors, initial_occurrence_val):

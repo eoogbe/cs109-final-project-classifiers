@@ -7,24 +7,26 @@ Uses a Naive Bayes Classifier to make predictions for a Bernoulli RV.
 The probability estimates are determined using MLE first, then Laplace.
 
 Usage:
-    naive_bayes_classifier.py <train> <test>
+    naive_bayes_classifier.py <train> <test> [-d]
 where
     <train> is the name of the training file
     <test> is the name of the testing file
+    -d is a flag to show debug output
 """
 
 import sys
-from test_result import TestResult
-from training_result import TrainingResult, OUTPUT_VALUES
+from test_result import TestResult, OUTPUT_VALUES
+from training_result import TrainingResult
 from maximizer import Maximizer
 from report_test_results import report_test_results
 
 ESTIMATORS = {"MLE": 0, "Lapace": 1}
 
 class NaiveBayesClassifier(object):
-    def __init__(self, train_file, test_file):
+    def __init__(self, train_file, test_file, debug):
         self.__train_file = train_file
         self.__test_file = test_file
+        self.__debug = debug
     
     def train_mle(self):
         return self.train(0)
@@ -49,6 +51,13 @@ class NaiveBayesClassifier(object):
                     training_result.add_data(x.split(" "), y)
         
         training_result.train()
+        
+        if self.__debug:
+            print()
+            print("P(Xi=1|Y=1):")
+            print(training_result)
+            print()
+        
         return training_result
     
     def test(self, training_result):
@@ -69,10 +78,11 @@ class NaiveBayesClassifier(object):
         return test_results
 
 if __name__ == "__main__":
-    classifier = NaiveBayesClassifier(sys.argv[1], sys.argv[2])
+    classifier = NaiveBayesClassifier(sys.argv[1], sys.argv[2], len(sys.argv) >= 4)
     
     for name, initial_occurrence_val in ESTIMATORS.items():
+        print(name)
         training_result = classifier.train(initial_occurrence_val)
         test_results = classifier.test(training_result)
-        report_test_results(name, test_results)
-        print()
+        report_test_results(test_results)
+        print("\n")

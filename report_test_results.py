@@ -1,6 +1,4 @@
-def report_test_results(title, test_results):
-    print(title)
-    
+def report_test_results(test_results):
     for output_class, class_result in test_results.items():
         print("Class {0}: tested: {1}, correctly classified {2}".format(output_class, class_result.tested, class_result.correct))
     
